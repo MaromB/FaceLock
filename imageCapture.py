@@ -1,5 +1,5 @@
 import cv2
-# import face_recognition
+import face_recognition
 from firebase_DB import db
 
 
@@ -12,7 +12,12 @@ class imageCapture:
         ret, frame = cap.read()
         cap.release()
         cv2.destroyAllWindows()
-        return frame
+        return frame if ret else None
+
+    def encode_face(self, image):
+        rgb_image = image[:, :, ::-1]  # Convert BGR to RGB
+        face_encodings = face_recognition.face_encodings(rgb_image)
+        return face_encodings[0] if face_encodings else None
 
     def register_user(self, username):
         frame = self.capture_image()

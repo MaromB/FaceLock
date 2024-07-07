@@ -1,6 +1,8 @@
+import cv2
 from PyQt5 import QtWidgets, QtGui, QtCore
 from imageCapture import imageCapture
 import sys
+import numpy as np
 import firebase_DB
 
 
@@ -13,7 +15,7 @@ class MainScreen(QtWidgets.QWidget):
         self.username_label = None
         # self.image_capture_instance = imageCapture(self.db)
         self.setWindowTitle('FaceLock')
-        self.setGeometry(500, 500, 300, 200)
+        self.setGeometry(300, 300, 300, 200)
         layout1 = QtWidgets.QVBoxLayout(self)
         layout2 = QtWidgets.QHBoxLayout()
 
@@ -31,26 +33,57 @@ class MainScreen(QtWidgets.QWidget):
         layout1.setAlignment(layout2, QtCore.Qt.AlignCenter)
 
 
+def apply_zoom(frame, zoom_fact):
+    h, w, _ = frame.shape
+    centerX, centerY = w // 2, h // 2
+    newW, newH = int(w/zoom_fact), int(h/zoom_fact)
+    newW, new_h = int(w / zoom_fact), int(h / zoom_fact)
+
+    x1, y1 = centerX - newW // 2, centerY - new_h // 2
+    x2, y2 = centerX + newW // 2, centerY + new_h // 2
+    cropped_frame = frame[y1:y2, x1:x2]
+    return cropped_frame
+
+
 class FaceRegisterScreen(QtWidgets.QWidget):
     def __init__(self, switch_to_main_screen):
         super().__init__()
-        layout = QtWidgets.QHBoxLayout()
-        label_layout = QtWidgets.QVBoxLayout()
-        self.main_label = QtWidgets.QLabel('Face Registration', self)
-        label_layout.addWidget(self.main_label, alignment=QtCore.Qt.AlignLeft)
-        self.Instructions_label = QtWidgets.QLabel('Please look at the camera and move your face in circular motions',
-                                                   self)
-        label_layout.addWidget(self.Instructions_label, alignment=QtCore.Qt.AlignCenter)
+        self.cap = cv2.VideoCapture(0)
+        layout = QtWidgets.QVBoxLayout()
+        label_layout = QtWidgets.QHBoxLayout()
+        self.main_label = QtWidgets.QLabel('Face Registration \nPlease look at the camera and move your face in '
+                                           'circular motions', self)
+        label_layout.addWidget(self.main_label, alignment=QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         layout.addLayout(label_layout)
+
+        self.image_label = QtWidgets.QLabel(self)
+        self.image_label.resize(480, 360)
+        self.image_label.frameSize()
+        layout.addWidget(self.image_label, alignment=QtCore.Qt.AlignCenter)
 
         self.back_button = QtWidgets.QPushButton("Go to Main Screen")
         self.back_button.clicked.connect(switch_to_main_screen)
-        label_layout.addWidget(self.back_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignRight |
-                               QtCore.Qt.AlignBottom)
+        layout.addWidget(self.back_button, alignment=QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
 
         layout.addLayout(label_layout)
-
         self.setLayout(layout)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.timer.start(30)
+        self.zoom_fact = 1.6
+
+    def update_frame(self):
+        ret, frame = self.cap.read()
+        if ret:
+            frame = apply_zoom(frame, self.zoom_fact)
+            frame = cv2.resize(frame, (480, 360))
+            # Convert the frame to RGB format
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Convert the frame to QImage format
+            image = QtGui.QImage(frame, frame.shape[1], frame.shape[0], frame.strides[0], QtGui.QImage.Format_RGB888)
+            # Set the QImage to the QLabel
+            self.image_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
 
 class RegisterScreen(QtWidgets.QWidget):
@@ -59,8 +92,8 @@ class RegisterScreen(QtWidgets.QWidget):
         self.switch_to_face_registration_screen = switch_to_face_registration_screen
         layout = QtWidgets.QVBoxLayout()
 
-        spacer = QtWidgets.QSpacerItem(0, 40, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        layout.addSpacerItem(spacer)
+        # spacer = QtWidgets.QSpacerItem(0, 40, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        # layout.addSpacerItem(spacer)
 
         username_layout = QtWidgets.QHBoxLayout()
         self.username_label = QtWidgets.QLabel('Username:', self)
@@ -73,6 +106,7 @@ class RegisterScreen(QtWidgets.QWidget):
         self.password_label = QtWidgets.QLabel('Password:', self)
         self.password_input = QtWidgets.QLineEdit(self)
         self.password_input.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.password_input.setText('123123Rr!')
         password_layout.addWidget(self.password_label, alignment=QtCore.Qt.AlignLeft)
         password_layout.addWidget(self.password_input, alignment=QtCore.Qt.AlignLeft)
         layout.addLayout(password_layout)
@@ -81,6 +115,7 @@ class RegisterScreen(QtWidgets.QWidget):
         self.password_validation_label = QtWidgets.QLabel('Password again:', self)
         self.password_validation_input = QtWidgets.QLineEdit(self)
         self.password_validation_input.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.password_validation_input.setText('123123Rr!')
         password_validation_layout.addWidget(self.password_validation_label, alignment=QtCore.Qt.AlignLeft)
         password_validation_layout.addWidget(self.password_validation_input, alignment=QtCore.Qt.AlignLeft)
         layout.addLayout(password_validation_layout)
