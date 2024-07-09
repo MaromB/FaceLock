@@ -8,22 +8,38 @@ class App(QtWidgets.QWidget):
         super().__init__()
         self.setWindowTitle('FaceLock')
         self.setGeometry(500, 500, 500, 500)
-
         self.stacked_widget = QtWidgets.QStackedWidget()
+        self.create_screens()
 
-        self.main_screen = MainScreen(self.switch_to_login_screen, self.switch_to_register_screen)
-        self.login_screen = LoginScreen(self.switch_to_main_screen)
-        self.register_screen = RegisterScreen(self.switch_to_main_screen, self.switch_to_face_registration_screen)
-        self.face_registration_screen = FaceRegisterScreen(self.switch_to_main_screen)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.stacked_widget)
+        self.setLayout(layout)
+
+    def create_screens(self):
+
+        self.main_screen = MainScreen(self)
+        self.login_screen = LoginScreen(self)
+        self.register_screen = RegisterScreen(self)
+        self.face_registration_screen = FaceRegisterScreen(self)
 
         self.stacked_widget.addWidget(self.main_screen)
         self.stacked_widget.addWidget(self.login_screen)
         self.stacked_widget.addWidget(self.register_screen)
         self.stacked_widget.addWidget(self.face_registration_screen)
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.stacked_widget)
-        self.setLayout(layout)
+    def reset_app(self):
+        self.stacked_widget.removeWidget(self.main_screen)
+        self.stacked_widget.removeWidget(self.login_screen)
+        self.stacked_widget.removeWidget(self.register_screen)
+        self.stacked_widget.removeWidget(self.face_registration_screen)
+
+        self.main_screen.deleteLater()
+        self.login_screen.deleteLater()
+        self.register_screen.deleteLater()
+        self.face_registration_screen.cleanup()
+
+        self.create_screens()
+        self.switch_to_main_screen()
 
     def switch_to_main_screen(self):
         self.stacked_widget.setCurrentWidget(self.main_screen)
@@ -36,6 +52,17 @@ class App(QtWidgets.QWidget):
 
     def switch_to_face_registration_screen(self):
         self.stacked_widget.setCurrentWidget(self.face_registration_screen)
+        self.face_registration_screen.start_face_registration()
+
+    def closeEvent(self, event):
+        try:
+            # Ensure proper cleanup when closing the application
+            if hasattr(self, 'face_registration_screen'):
+                self.face_registration_screen.timer.stop()
+                self.face_registration_screen.image_cap.cleanup()
+        except Exception as e:
+            print(f"Exception during closeEvent: {e}")
+        event.accept()
 
 
 def main():

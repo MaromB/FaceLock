@@ -1,31 +1,28 @@
-import cv2
-from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5 import QtWidgets, QtCore
 from imageCapture import imageCapture
-import sys
-import numpy as np
 import firebase_DB
 
 
 class MainScreen(QtWidgets.QWidget):
-    def __init__(self, switch_to_login_screen, switch_to_register_screen):
+    def __init__(self, app):
         super().__init__()
         self.login_button = None
         self.register_button = None
         self.username_input = None
         self.username_label = None
-        # self.image_capture_instance = imageCapture(self.db)
         self.setWindowTitle('FaceLock')
         self.setGeometry(300, 300, 300, 200)
         layout1 = QtWidgets.QVBoxLayout(self)
         layout2 = QtWidgets.QHBoxLayout()
+        self.app = app
 
         self.login_button = QtWidgets.QPushButton('Sign in', self)
-        self.login_button.clicked.connect(switch_to_login_screen)
+        self.login_button.clicked.connect(self.app.switch_to_login_screen)
         layout2.addWidget(self.login_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom |
                           QtCore.Qt.AlignLeft)
 
         self.register_button = QtWidgets.QPushButton('Sign out', self)
-        self.register_button.clicked.connect(switch_to_register_screen)
+        self.register_button.clicked.connect(self.app.switch_to_register_screen)
         layout2.addWidget(self.register_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignBottom |
                           QtCore.Qt.AlignRight)
 
@@ -33,63 +30,54 @@ class MainScreen(QtWidgets.QWidget):
         layout1.setAlignment(layout2, QtCore.Qt.AlignCenter)
 
 
-def apply_zoom(frame, zoom_fact):
-    h, w, _ = frame.shape
-    centerX, centerY = w // 2, h // 2
-    newW, newH = int(w/zoom_fact), int(h/zoom_fact)
-    newW, new_h = int(w / zoom_fact), int(h / zoom_fact)
-
-    x1, y1 = centerX - newW // 2, centerY - new_h // 2
-    x2, y2 = centerX + newW // 2, centerY + new_h // 2
-    cropped_frame = frame[y1:y2, x1:x2]
-    return cropped_frame
-
-
 class FaceRegisterScreen(QtWidgets.QWidget):
-    def __init__(self, switch_to_main_screen):
+    def __init__(self, app):
         super().__init__()
-        self.cap = cv2.VideoCapture(0)
+        self.image_cap = None
         layout = QtWidgets.QVBoxLayout()
         label_layout = QtWidgets.QHBoxLayout()
-        self.main_label = QtWidgets.QLabel('Face Registration \nPlease look at the camera and move your face in '
-                                           'circular motions', self)
+        self.app = app
+        self.main_label = QtWidgets.QLabel('Face Registration \nPlease look at the camera and tilt your head to let '
+                                           'the system recognize your facial features', self)
         label_layout.addWidget(self.main_label, alignment=QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         layout.addLayout(label_layout)
+        self.image = QtWidgets.QLabel(self)
+        self.image.resize(480, 360)
+        self.image.frameSize()
+        layout.addWidget(self.image, alignment=QtCore.Qt.AlignCenter)
 
-        self.image_label = QtWidgets.QLabel(self)
-        self.image_label.resize(480, 360)
-        self.image_label.frameSize()
-        layout.addWidget(self.image_label, alignment=QtCore.Qt.AlignCenter)
+        self.images_label = QtWidgets.QLabel('', self)
+        layout.addWidget(self.images_label, alignment=QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
 
         self.back_button = QtWidgets.QPushButton("Go to Main Screen")
-        self.back_button.clicked.connect(switch_to_main_screen)
+        self.back_button.clicked.connect(self.app.switch_to_main_screen)
         layout.addWidget(self.back_button, alignment=QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
-
         layout.addLayout(label_layout)
         self.setLayout(layout)
 
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.update_frame)
-        self.timer.start(30)
-        self.zoom_fact = 1.6
+    def update_labels(self, count, timer):
+        self.images_label.setText(f'Number of images required:  {count}  Timer: {timer}  \n')
 
-    def update_frame(self):
-        ret, frame = self.cap.read()
-        if ret:
-            frame = apply_zoom(frame, self.zoom_fact)
-            frame = cv2.resize(frame, (480, 360))
-            # Convert the frame to RGB format
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # Convert the frame to QImage format
-            image = QtGui.QImage(frame, frame.shape[1], frame.shape[0], frame.strides[0], QtGui.QImage.Format_RGB888)
-            # Set the QImage to the QLabel
-            self.image_label.setPixmap(QtGui.QPixmap.fromImage(image))
+    def timer_start(self, event):
+        self.image_cap.update_time()
+
+    def start_face_registration(self):
+        self.image_cap = imageCapture(self.image, self, self.app)
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.image_cap.update_frame)
+        self.showEvent = self.timer_start
+        self.show()
+        self.timer.start(30)
+
+    def cleanup(self):
+        self.timer.stop()
+        self.image_cap.release_capture()
 
 
 class RegisterScreen(QtWidgets.QWidget):
-    def __init__(self, switch_to_main_screen, switch_to_face_registration_screen):
+    def __init__(self, app):
         super().__init__()
-        self.switch_to_face_registration_screen = switch_to_face_registration_screen
+        self.app = app
         layout = QtWidgets.QVBoxLayout()
 
         # spacer = QtWidgets.QSpacerItem(0, 40, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -148,7 +136,7 @@ class RegisterScreen(QtWidgets.QWidget):
                                 QtCore.Qt.AlignBottom)
 
         self.back_button = QtWidgets.QPushButton("Go to Main Screen")
-        self.back_button.clicked.connect(switch_to_main_screen)
+        self.back_button.clicked.connect(self.app.switch_to_main_screen)
         button_layout.addWidget(self.back_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignRight |
                                 QtCore.Qt.AlignBottom)
 
@@ -188,14 +176,14 @@ class RegisterScreen(QtWidgets.QWidget):
         if not success:
             QtWidgets.QMessageBox.warning(self, "Error", message)
         else:
-            self.switch_to_face_registration_screen()
+            self.app.switch_to_face_registration_screen()
 
 
 class LoginScreen(QtWidgets.QWidget):
-    def __init__(self, switch_to_main_screen):
+    def __init__(self, app):
         super().__init__()
         layout = QtWidgets.QVBoxLayout()
-
+        self.app = app
         username_layout = QtWidgets.QHBoxLayout()
         self.username_label = QtWidgets.QLabel('Username:', self)
         self.username_input = QtWidgets.QLineEdit(self)
@@ -216,21 +204,18 @@ class LoginScreen(QtWidgets.QWidget):
 
         button_layout = QtWidgets.QHBoxLayout()
         self.login_button = QtWidgets.QPushButton("Login")
-        self.login_button.clicked.connect(switch_to_main_screen)
+        self.login_button.clicked.connect(self.app.switch_to_main_screen)
         button_layout.addWidget(self.login_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignLeft |
                                 QtCore.Qt.AlignBottom)
         
         self.back_button = QtWidgets.QPushButton("Go to Main Screen")
-        self.back_button.clicked.connect(switch_to_main_screen)
+        self.back_button.clicked.connect(self.app.switch_to_main_screen)
         button_layout.addWidget(self.back_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignRight |
                                 QtCore.Qt.AlignBottom)
 
         button_layout.setAlignment(QtCore.Qt.AlignCenter)
         layout.addLayout(button_layout)
         self.setLayout(layout)
-
-        # username = self.username_input.text()
-        # self.image_capture_instance.register_user(username)
 
     def on_authenticate_clicked(self):
         self.image_capture_instance.authenticate_user()
