@@ -46,13 +46,14 @@ class App(QtWidgets.QWidget):
 
     def switch_to_login_screen(self):
         self.stacked_widget.setCurrentWidget(self.login_screen)
+        # self.login_screen.start_login_capture()
 
     def switch_to_register_screen(self):
         self.stacked_widget.setCurrentWidget(self.register_screen)
 
-    def switch_to_face_registration_screen(self):
+    def switch_to_face_registration_screen(self, db):
         self.stacked_widget.setCurrentWidget(self.face_registration_screen)
-        self.face_registration_screen.start_face_registration()
+        self.face_registration_screen.start_face_registration(db)
 
     def closeEvent(self, event):
         try:
