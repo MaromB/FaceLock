@@ -29,12 +29,12 @@ class App(QtWidgets.QWidget):
 
     def reset_app(self):
         self.stacked_widget.removeWidget(self.main_screen)
-        self.stacked_widget.removeWidget(self.login_screen)
+        # self.stacked_widget.removeWidget(self.login_screen)
         self.stacked_widget.removeWidget(self.register_screen)
         self.stacked_widget.removeWidget(self.face_registration_screen)
 
         self.main_screen.deleteLater()
-        self.login_screen.deleteLater()
+        # self.login_screen.cleanup()
         self.register_screen.deleteLater()
         self.face_registration_screen.cleanup()
 
@@ -51,9 +51,9 @@ class App(QtWidgets.QWidget):
     def switch_to_register_screen(self):
         self.stacked_widget.setCurrentWidget(self.register_screen)
 
-    def switch_to_face_registration_screen(self, db):
+    def switch_to_face_registration_screen(self, register_screen):
         self.stacked_widget.setCurrentWidget(self.face_registration_screen)
-        self.face_registration_screen.start_face_registration(db)
+        self.face_registration_screen.start_face_registration(register_screen)
 
     def closeEvent(self, event):
         try:

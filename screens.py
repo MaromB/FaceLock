@@ -33,6 +33,7 @@ class MainScreen(QtWidgets.QWidget):
 class FaceRegisterScreen(QtWidgets.QWidget):
     def __init__(self, app):
         super().__init__()
+        self.register_screen = None
         self.image_cap = None
         layout = QtWidgets.QVBoxLayout()
         label_layout = QtWidgets.QHBoxLayout()
@@ -63,8 +64,9 @@ class FaceRegisterScreen(QtWidgets.QWidget):
     def timer_start(self, event):
         self.image_cap.update_time()
 
-    def start_face_registration(self, db):
-        self.image_cap = imageCapture(self.image, self, self.app, db)
+    def start_face_registration(self, register_screen):
+        self.register_screen = register_screen
+        self.image_cap = imageCapture(self.app, None, self, self.register_screen)
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.image_cap.update_frame_registration)
         self.showEvent = self.timer_start
@@ -179,13 +181,13 @@ class RegisterScreen(QtWidgets.QWidget):
         if not success:
             QtWidgets.QMessageBox.warning(self, "Error", message)
         else:
-            self.app.switch_to_face_registration_screen(self.db)
+            self.app.switch_to_face_registration_screen(self)
 
 
 class LoginScreen(QtWidgets.QWidget):
     def __init__(self, app):
         super().__init__()
-        self.image_cap = QtWidgets.QLabel(self)
+        self.image_cap = QtWidgets
         layout = QtWidgets.QVBoxLayout()
         self.app = app
         username_layout = QtWidgets.QHBoxLayout()
@@ -202,14 +204,14 @@ class LoginScreen(QtWidgets.QWidget):
         self.image.resize(480, 360)
         self.image.frameSize()
         layout.addWidget(self.image, alignment=QtCore.Qt.AlignCenter)
-        self.image_cap = imageCapture(self.image, self, self.app, None)
+        self.image_cap = imageCapture(self.app, self, None, None)
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.image_cap.update_frame_login)
         self.timer.start(30)
 
         button_layout = QtWidgets.QHBoxLayout()
         self.login_button = QtWidgets.QPushButton("Login")
-        answer = self.login_button.clicked.connect(lambda: self.image_cap.login_into_system(self.username_input.text()))
+        answer = self.login_button.clicked.connect(lambda: firebase_DB.login_into_system(self))
         button_layout.addWidget(self.login_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignLeft |
                                 QtCore.Qt.AlignBottom)
         print(answer)
@@ -227,7 +229,7 @@ class LoginScreen(QtWidgets.QWidget):
         self.image_capture_instance.authenticate_user()
 
     def start_login_capture(self):
-        self.image_cap = imageCapture(self.image, self, self.app, None)
+        self.image_cap = imageCapture(self.app, self, None, None)
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.image_cap.update_frame_login)
         self.timer.start(30)
