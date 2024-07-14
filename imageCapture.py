@@ -1,6 +1,6 @@
 import time
 import cv2
-from PyQt5 import QtGui, QtMultimedia, QtCore, QtWidgets
+from PyQt5 import QtGui, QtMultimedia, QtCore
 import firebase_DB
 
 
@@ -50,10 +50,10 @@ class imageCapture:
                 self.images.append(self.frame)
                 self.play_sound('C:/Users/Administrator/Downloads/FaceLock/sound_of_capture_camera.wma')
                 self.update_time()
-                firebase_DB.embeddings_vector(self.frame, self.register_screen.username_input.text())
             if self.count == 0:
                 db = self.register_screen.db
                 db.save_images_in_db(self.images)
+                firebase_DB.embeddings_faces_to_vectors(self.images, self.register_screen.username_input.text())
                 self.app.reset_app()
 
     def update_time(self):

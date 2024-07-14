@@ -175,7 +175,7 @@ class RegisterScreen(QtWidgets.QWidget):
                                           "Password must contain at least one special character (!@#$%^&*+=-/?><).")
             return
         self.db = firebase_DB.Database(self.username_input.text(), password, self.Fname_input.text(),
-                                       self.Lname_input.text(), self.username_input.text())
+                                       self.Lname_input.text(), self.Email_input.text())
         success, message = self.db.register_user()
 
         if not success:
@@ -187,6 +187,7 @@ class RegisterScreen(QtWidgets.QWidget):
 class LoginScreen(QtWidgets.QWidget):
     def __init__(self, app):
         super().__init__()
+        self.db = None
         self.image_cap = QtWidgets
         layout = QtWidgets.QVBoxLayout()
         self.app = app
@@ -211,7 +212,7 @@ class LoginScreen(QtWidgets.QWidget):
 
         button_layout = QtWidgets.QHBoxLayout()
         self.login_button = QtWidgets.QPushButton("Login")
-        answer = self.login_button.clicked.connect(lambda: firebase_DB.login_into_system(self))
+        answer = self.login_button.clicked.connect(lambda: self.handle_login())
         button_layout.addWidget(self.login_button, alignment=QtCore.Qt.AlignCenter | QtCore.Qt.AlignLeft |
                                 QtCore.Qt.AlignBottom)
         print(answer)
@@ -233,4 +234,9 @@ class LoginScreen(QtWidgets.QWidget):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.image_cap.update_frame_login)
         self.timer.start(30)
+    
+    def handle_login(self):
+        self.db = firebase_DB.Database(self.username_input.text(), None, None, None, None)
+        self.db.login_into_system(self.image_cap.frame)
+        
 

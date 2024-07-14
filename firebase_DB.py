@@ -5,37 +5,11 @@ import numpy as np
 from PIL import Image
 from firebase_admin import credentials, firestore
 from imgbeddings import imgbeddings
+from scipy.spatial.distance import cosine
 
 cred = credentials.Certificate('C:/Users/Administrator/Downloads/facelock.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
-
-
-def get_encoded_faces_from_db(username):
-    doc_ref = db.collection('Faces').document(username)
-    doc = doc_ref.get()
-
-    if doc.exists:
-        images_base64 = doc.get('images')
-        if images_base64:
-            encoded_faces = []
-            for image_base64 in images_base64:
-                # Step 1: Decode the base64 string to binary data
-                image_data = base64.b64decode(image_base64)
-                # Step 2: Convert the binary data to a numpy array
-                nparr = np.frombuffer(image_data, np.uint8)
-                # Step 3: Decode the numpy array to an OpenCV image
-                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                # Step 4: Convert the image to RGB format
-                rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                encoded_faces.append(rgb_img)
-            return encoded_faces
-        else:
-            print("No images found for this user.")
-            return []
-    else:
-        print("No document found for this user.")
-        return []
 
 
 def check_username_existence(username):
@@ -44,23 +18,46 @@ def check_username_existence(username):
 
 
 def taking_embeddings_from_db(username):
-    vectors = db.collection("Embedding").where('Username', '==', username).get()
+    vectors = []
+    doc_ref = db.collection("Embedding").document(username).collection('vectors').stream()
+
+    for doc in doc_ref:
+        data = doc.to_dict()
+        if 'embedding' in data:
+            embedding = data['embedding']
+            vector = np.array(embedding)
+            vectors.append(vector)
+
     return vectors
 
 
-def embeddings_vector(image_of_face, username):
-    # opening the image
-    img = Image.fromarray(image_of_face)
-    # loading the `imgbeddings`
-    ibed = imgbeddings()
-    # calculating the embeddings
-    embedding = ibed.to_embeddings(img)
-    embedding_flat = embedding.flatten().tolist()
-    db.collection('Embedding').document(username).set({'embedding': embedding_flat})
+def embeddings_faces_to_vectors(images_of_face, username):
+    for face in images_of_face:
+        # opening the image
+        img = Image.fromarray(face)
+        # loading the `imgbeddings`
+        ibed = imgbeddings()
+        # calculating the embeddings
+        embedding = ibed.to_embeddings(img)
+        embedding_flat = embedding.flatten().tolist()
+        db.collection('Embedding').document(username).set({'embedding': embedding_flat})
+        user_ref = db.collection('Embedding').document(username)
+        subcollection_ref = user_ref.collection('vectors')
+        doc_id = len(subcollection_ref.get()) + 1
+        subcollection_ref.document(str(doc_id)).set({'embedding': embedding_flat})
+
+
+def compare_embeddings(embeddings_db, embedding_user):
+    for i, embedding in enumerate(embeddings_db, start=1):
+        if cosine(embedding, embedding_user) < 0.2:
+            print(f'True {i}')
+            return True
+        print(f'False {i}')
+    return False
 
 
 class Database:
-    def __init__(self, username, password, first_name, last_name, email):
+    def __init__(self, username, password=None, first_name=None, last_name=None, email=None):
         self.login_screen = None
         self.username = username
         self.password = password
@@ -86,8 +83,13 @@ class Database:
         encoded_images = [base64.b64encode(cv2.imencode('.jpg', img)[1]).decode('utf-8') for img in images]
         db.collection('Faces').document(self.username).set({'images': encoded_images})
     
-    def login_into_system(self):
-        list_of_embeddings_of_faces = taking_embeddings_from_db(self.login_screen.username_input.text())
-        face_of_user = Image.fromarray(self.frame)
-        # list_of_answers = face_recognition.api.compare_faces(list_of_faces, self.face_encodings, tolerance=0.6)
-        return any(list_of_faces)
+    def login_into_system(self, frame):
+        list_of_embeddings_of_faces = taking_embeddings_from_db(self.username)
+
+        img = Image.fromarray(frame)
+        ibed = imgbeddings()
+        embedding_user = ibed.to_embeddings(img)
+        embedding_flat_user = embedding_user.flatten().tolist()
+        answer = compare_embeddings(list_of_embeddings_of_faces, embedding_flat_user)
+
+        return answer
